@@ -25,3 +25,42 @@ let rec non_bound = function
         List.filter (fun y -> variable <> y) (non_bound definition)
     | Application { funct; argument } ->
         (non_bound funct) @ (non_bound argument)
+
+(* Returns a new variable name: v{counter} *)
+let new_name =
+    let x = ref 0 in
+    fun () ->
+        let counter = !x in
+        incr x;
+        "v" ^ (string_of_int counter)
+
+(* Substitutes occurrences of var with value in expr.
+(* Examples *)
+let e0 = Application { funct = Variable "x"; argument = Variable "y" }
+substitute e0 "x" (Variable "z")
+== Application {funct = Variable "z"; argument = Variable "y"}
+*)
+let rec substitute expr var value =
+    match expr with
+        | Variable name ->
+            if name = var then value else expr
+        | Abstraction { variable; definition } ->
+            if var = variable then
+                Abstraction { variable; definition }
+            else if not (List.mem variable (non_bound value)) then
+                Abstraction {
+                    variable;
+                    definition = substitute definition var value;
+                }
+            else (* α-conversion, (λx.M[x]) → (λy.M[y]) *)
+                let v = new_name() in
+                let e = substitute definition variable (Variable v) in
+                Abstraction {
+                    variable   = v;
+                    definition = substitute e var value;
+                }
+        | Application { funct; argument } ->
+            Application {
+                funct    = substitute funct var value;
+                argument = substitute argument var value;
+            }
