@@ -11,13 +11,7 @@ type expression =
         argument : expression; (* argument, N *)
     } (* (M N) *)
 
-(* Returns a list of free variables in the given expression.
-(* Examples *)
-non_bound (Variable "x")
-== ["x"]
-non_bound (Abstraction {variable = "x"; definition = (Variable "y")})
-== ["y"]
-*)
+(* Returns a list of free variables in the given expression. *)
 let rec non_bound = function
     | Variable name ->
         [name];
@@ -34,12 +28,7 @@ let new_name =
         incr x;
         "v" ^ (string_of_int counter)
 
-(* Substitutes occurrences of var with value in expr.
-(* Examples *)
-let e0 = Application { funct = Variable "x"; argument = Variable "y" }
-substitute e0 "x" (Variable "z")
-== Application {funct = Variable "z"; argument = Variable "y"}
-*)
+(* Substitutes occurrences of var with value in expr. *)
 let rec substitute expr var value =
     match expr with
         | Variable name ->
@@ -64,3 +53,26 @@ let rec substitute expr var value =
                 funct    = substitute funct var value;
                 argument = substitute argument var value;
             }
+
+(* Replaces the bound variables with the argument expression in the body of the abstraction (β-reduction). *)
+let rec reduce expr =
+    match expr with
+        | Abstraction { variable; definition } ->
+            Abstraction {
+                variable;
+                definition = reduce definition;
+            };
+        | Application {
+            funct = Abstraction { variable; definition };
+            argument;
+        } -> substitute definition variable argument;
+        | Application { funct; argument } ->
+            let funct' = reduce funct in
+            if funct' != funct then Application {
+                funct = funct';
+                argument;
+            } else Application {
+                funct;
+                argument = reduce argument;
+            };
+        | _ -> expr; (* Nothing to reduce... *)
